@@ -1,5 +1,7 @@
 import { aggregate, AggregationConflictError, many, one } from '../src'
 import hash from "object-hash"
+import { AggregatedField } from '../src/values'
+import { Field, Infer, InferValueWithRelations, ValueMap } from '../src/types'
 
 describe("aggregate", () => {
     it("should return undefined for single value and empty rows", () => {
@@ -99,14 +101,19 @@ describe("aggregate", () => {
             { id: 1, name: 'b' },
             { id: 1, name: 'c' },
         ]
-
-        const result = aggregate(row => many(
+        type TRow = typeof rows[0]
+        const f = (row: TRow) => many(
             row.id,
             {
                 id: row.id,
                 name: row.name
             }
-        ), rows)
+        )
+        type A = Infer<ReturnType<typeof f>>
+        type B = ReturnType<typeof f> extends ValueMap<infer TValue> ? InferValueWithRelations<TValue> : false
+
+        const result = aggregate(f, rows)
+
 
         expect(result).toEqual([{
             id: 1,

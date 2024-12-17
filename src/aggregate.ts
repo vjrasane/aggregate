@@ -1,18 +1,19 @@
-import { Infer, Key } from "./types"
+import { Field, Infer, Key, Value, ValueMap } from "./types"
 import { AggregatedField, AggregatedValue, AggregatedValueMap, toValue, update } from "./values"
 export { AggregationConflictError } from "./types"
 
-export const one = <TKey extends Key, TValue>(id: TKey, value: TValue): AggregatedField<TKey, TValue> => {
+export const one = <TKey extends Key, TValue>(id: TKey, value: TValue): Field<TValue> => {
     return new AggregatedValue(id, value)
 }
 
-export const many = <TKey extends Key, TValue>(id: TKey, value: TValue): AggregatedField<TKey, TValue> => {
+export const many = <TKey extends Key, TValue>(id: TKey, value: TValue): Field<TValue> => {
     return new AggregatedValueMap(id, value)
 }
 
 interface Aggregate {
-    <TData, TDef extends AggregatedField, TDefault>(accessor: (row: TData) => TDef, data: TData | TData[], defaultValue: TDefault): Infer<TDef> | TDefault
-    <TData, TDef extends AggregatedField>(accessor: (row: TData) => TDef, data: TData | TData[]): Infer<TDef> | undefined
+    <TData, TDef extends Field<any>, TDefault>(accessor: (row: TData) => TDef, data: TData | TData[], defaultValue: TDefault): Infer<TDef> | TDefault
+    <TData, TDef extends Field<any>>(accessor: (row: TData) => TDef, data: TData[]): Infer<TDef>
+    // <TData, TDef extends AggregatedField>(accessor: (row: TData) => TDef, data: TData): Infer<TDef> | undefined
 }
 
 export const aggregate: Aggregate = (...args: any[]) => {

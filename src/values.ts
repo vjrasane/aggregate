@@ -1,4 +1,4 @@
-import { AggregationConflictError, Infer, Key } from "./types"
+import { AggregationConflictError, Infer, Key, Value, ValueMap } from "./types"
 
 const isEqual = (a: any, b: any): boolean => {
     if (typeof a !== typeof b) return false
@@ -31,7 +31,7 @@ export const toValue = <TValue>(field: AggregatedField<any, TValue>): Infer<TVal
     throw new AggregationConflictError(`Cannot convert ${field.constructor.name} to value`)
 }
 
-export class AggregatedValue<TKey extends Key, TValue> extends AggregatedField<TKey, TValue> {
+export class AggregatedValue<TKey extends Key, TValue> extends AggregatedField<TKey, TValue> implements Value<TValue> {
     readonly id: any
     readonly value: any
 
@@ -76,7 +76,7 @@ export class AggregatedValue<TKey extends Key, TValue> extends AggregatedField<T
     }
 }
 
-export class AggregatedValueMap<TKey extends Key, TValue> extends AggregatedField<TKey, TValue> {
+export class AggregatedValueMap<TKey extends Key, TValue> extends AggregatedField<TKey, TValue> implements ValueMap<TValue> {
     values: Record<any, AggregatedField<any, TValue>> = {}
 
     constructor(key: TKey, value: TValue) {
@@ -104,3 +104,36 @@ export class AggregatedValueMap<TKey extends Key, TValue> extends AggregatedFiel
         return Object.values(this.values).map(toValue)
     }
 }
+
+
+type One<TValue, TOutput> = {
+    kind: 'value'
+    key: any
+    value: TValue
+    toValue: () => TOutput
+}
+
+type Many<TValue, TOutput> = {
+    kind: 'multi'
+    value: Record<any, TValue>,
+    toValue: () => TOutput[]
+}
+
+const one = <TValue>(key: any, value: TValue): One<TValue, Infer<TValue>> => {
+    return {
+        kind: 'value',
+        key,
+        value,
+        toValue: () => {
+            throw new Error('Not implemented')
+        }
+    }
+}
+
+const rows = [
+    { id: 1, name: 'Alice', age: 30 },
+    { id: 2, name: 'Bob', age: 40 },
+    { id: 3, name: 'Charlie', age: 50 }
+]
+
+const result = one(1, { name: 'Alice', age: 30 })
