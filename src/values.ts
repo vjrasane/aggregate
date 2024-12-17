@@ -2,6 +2,7 @@ import { AggregationConflictError, Infer, Key } from "./types"
 
 const isEqual = (a: any, b: any): boolean => {
     if (typeof a !== typeof b) return false
+    if (a == null) return a === b
     if (typeof a === 'object') return Object.entries(a).every(([key, value]) => isEqual(value, b[key]))
     return a === b
 }
@@ -11,12 +12,24 @@ const toString = (value: any): string => {
     return value
 }
 
-export abstract class AggregatedField<TKey extends Key, TValue> {
-    abstract update(aggregator: AggregatedField<any, any>): AggregatedField<TKey, TValue>
 
-    public abstract toValue(): Infer<TValue>
+export abstract class AggregatedField<TKey extends Key = any, TValue = any> {
+    // abstract update(aggregator: AggregatedField<any, any>): AggregatedField<TKey, TValue>
+
+    // abstract toValue(): Infer<TValue>
 }
 
+export const update = (first: AggregatedField, second: AggregatedField): AggregatedField => {
+    if (first instanceof AggregatedValue) return first.update(second)
+    if (first instanceof AggregatedValueMap) return first.update(second)
+    throw new AggregationConflictError(`Cannot update ${first.constructor.name} with ${second.constructor.name}`)
+}
+
+export const toValue = <TValue>(field: AggregatedField<any, TValue>): Infer<TValue> => {
+    if (field instanceof AggregatedValue) return field.toValue()
+    if (field instanceof AggregatedValueMap) return field.toValue() as Infer<TValue>
+    throw new AggregationConflictError(`Cannot convert ${field.constructor.name} to value`)
+}
 
 export class AggregatedValue<TKey extends Key, TValue> extends AggregatedField<TKey, TValue> {
     readonly id: any
@@ -49,7 +62,7 @@ export class AggregatedValue<TKey extends Key, TValue> extends AggregatedField<T
             }
             if (!(currentValue instanceof AggregatedField))
                 throw new AggregationConflictError(`Attempted to update relation of type ${typeof currentValue}`)
-            currentValue.update(fieldValue)
+            update(currentValue, fieldValue)
         })
     }
 
@@ -57,7 +70,7 @@ export class AggregatedValue<TKey extends Key, TValue> extends AggregatedField<T
         if (this.value == null) return this.value
         if (typeof this.value !== 'object') return this.value
         return Object.entries(this.value).reduce((acc, [fieldKey, fieldValue]) => {
-            acc[fieldKey] = (fieldValue instanceof AggregatedField) ? fieldValue.toValue() : fieldValue
+            acc[fieldKey] = (fieldValue instanceof AggregatedField) ? toValue(fieldValue) : fieldValue
             return acc
         }, {} as Record<any, any>)
     }
@@ -78,7 +91,7 @@ export class AggregatedValueMap<TKey extends Key, TValue> extends AggregatedFiel
             const keyString = toString(key)
             const currentValue = this.values[keyString]
             if (currentValue != null) {
-                currentValue.update(value)
+                update(currentValue, value)
                 return
             }
             this.values[keyString] = value
@@ -87,7 +100,7 @@ export class AggregatedValueMap<TKey extends Key, TValue> extends AggregatedFiel
     }
 
 
-    toValue(): Infer<TValue> {
-        return Object.values(this.values).map((value) => value.toValue()) as Infer<TValue>
+    toValue() {
+        return Object.values(this.values).map(toValue)
     }
 }

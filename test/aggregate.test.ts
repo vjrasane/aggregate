@@ -353,4 +353,18 @@ describe("aggregate", () => {
             }
         ])
     })
+
+    it("should not expose internals", () => {
+        /* @ts-expect-error */
+        many(1, 1).update(many(1, 1))
+        /* @ts-expect-error */
+        many(1, 1).toValue(many(1, 1))
+
+        /* @ts-expect-error */
+        one(1, 1).update(one(1, 1))
+        /* @ts-expect-error */
+        one(1, 1).toValue(one(1, 1))
+
+        expect(true).toBe(true)
+    })
 })
