@@ -1,8 +1,8 @@
-import { aggregate, AggregationConflictError, many, one } from '../src'
 import hash from "object-hash"
-import { AggregatedField } from '../src/values'
-import { Field, Infer, InferValueWithRelations, ValueMap } from '../src/types'
+import { aggregate, AggregationConflictError, many, one } from '../src'
 
+export function assert<T extends never>() { }
+type TypeEqualityGuard<A, B> = Exclude<A, B> | Exclude<B, A>;
 describe("aggregate", () => {
     it("should return undefined for single value and empty rows", () => {
         const result = aggregate((row: any) => one(row.id, row.name), [])
@@ -101,18 +101,14 @@ describe("aggregate", () => {
             { id: 1, name: 'b' },
             { id: 1, name: 'c' },
         ]
-        type TRow = typeof rows[0]
-        const f = (row: TRow) => many(
-            row.id,
-            {
-                id: row.id,
-                name: row.name
-            }
-        )
-        type A = Infer<ReturnType<typeof f>>
-        type B = ReturnType<typeof f> extends ValueMap<infer TValue> ? InferValueWithRelations<TValue> : false
-
-        const result = aggregate(f, rows)
+        const result = aggregate(
+            row => many(
+                row.id,
+                {
+                    id: row.id,
+                    name: row.name
+                }),
+            rows)
 
 
         expect(result).toEqual([{
@@ -373,5 +369,40 @@ describe("aggregate", () => {
         one(1, 1).toValue(one(1, 1))
 
         expect(true).toBe(true)
+    })
+
+    it("should infer types correctly", () => {
+        const rows = [
+            { id: 1, name: 'a', friendId: 1, petId: 1, petName: 'dog' },
+        ]
+
+        const result = aggregate(row => many(row.id, {
+            id: row.id,
+            name: row.name,
+            friends: many(row.friendId, {
+                id: row.friendId,
+                pets: many(row.petId, {
+                    id: row.petId,
+                    name: row.petName
+                }).map(pet => pet.name)
+            })
+        }).map(
+            (user) => ({ ...user, extra: Symbol() })
+        ), rows)
+
+        type Expected = {
+            id: number
+            name: string
+            friends: {
+                id: number
+                pets: string[]
+            }[]
+            extra: symbol
+        }[] | undefined
+
+        type Actual = typeof result
+
+        assert<TypeEqualityGuard<Expected, Actual>>()
+        assert<TypeEqualityGuard<Exclude<Actual, undefined>, Exclude<Expected, undefined>>>()
     })
 })

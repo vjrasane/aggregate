@@ -1,31 +1,27 @@
-import { Field, Infer, Key, Value, ValueMap } from "./types"
-import { AggregatedField, AggregatedValue, AggregatedValueMap, toValue, update } from "./values"
+import { Internal, ManyInternal, OneInternal } from "./internal"
+import { Arity, Infer, Many, One } from "./types"
 export { AggregationConflictError } from "./types"
 
-export const one = <TKey extends Key, TValue>(id: TKey, value: TValue): Field<TValue> => {
-    return new AggregatedValue(id, value)
-}
 
-export const many = <TKey extends Key, TValue>(id: TKey, value: TValue): Field<TValue> => {
-    return new AggregatedValueMap(id, value)
-}
+export const one = <TValue>(key: any, value: TValue): One<Infer<TValue>> => new OneInternal(key, value, v => v)
+
+export const many = <TValue>(key: any, value: TValue): Many<Infer<TValue>> => ManyInternal.fromValue(key, value)
 
 interface Aggregate {
-    <TData, TDef extends Field<any>, TDefault>(accessor: (row: TData) => TDef, data: TData | TData[], defaultValue: TDefault): Infer<TDef> | TDefault
-    <TData, TDef extends Field<any>>(accessor: (row: TData) => TDef, data: TData[]): Infer<TDef>
-    // <TData, TDef extends AggregatedField>(accessor: (row: TData) => TDef, data: TData): Infer<TDef> | undefined
+    <TData, TDef extends Arity<any>, TDefault>(accessor: (row: TData) => TDef, data: TData | TData[], defaultValue: TDefault): Infer<TDef> | TDefault
+    <TData, TDef extends Arity<any>>(accessor: (row: TData) => TDef, data: TData | TData[]): Infer<TDef> | undefined
 }
 
 export const aggregate: Aggregate = (...args: any[]) => {
     const [accessor, data, defaultValue] = args
     const rows = Array.isArray(data) ? data : [data]
     if (!rows.length) return defaultValue
-    const result: AggregatedField | undefined = rows.reduce(
-        (acc: AggregatedField | undefined, row) =>
+    const result: Internal<any> | undefined = rows.reduce(
+        (acc: Internal<any> | undefined, row) =>
             acc == null
                 ? accessor(row)
-                : update(acc, accessor(row)),
+                : acc.update(accessor(row)),
         undefined)
     if (result == null) return result
-    return toValue(result)
+    return result.toValue()
 }
